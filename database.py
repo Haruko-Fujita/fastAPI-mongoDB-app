@@ -2,7 +2,7 @@ from decouple import config # 環境変数読み込み
 # from fastapi import HTTPException
 from typing import Union # union型
 import motor.motor_asyncio # mongoDBとの連携
-# from bson import ObjectId
+from bson import ObjectId # BSONはmongoDBの保存型、string型からオブジェクト型に変換
 # from auth_utils import AuthJwtCsrf
 # import asyncio
 
@@ -33,6 +33,7 @@ def todo_serializer(todo) -> dict:
     # }
 
 
+# todo作成
 async def db_create_todo(data: dict) -> Union[dict, bool]: # returnの方が複数、union型
     todo = await collection_todo.insert_one(data) # moterモジュールでmongoDBにinserted_idドキュメントを生成
     new_todo = await collection_todo.find_one({"_id": todo.inserted_id}) # mongoDBからidドキュメントを取得
@@ -41,39 +42,46 @@ async def db_create_todo(data: dict) -> Union[dict, bool]: # returnの方が複�
     return False
 
 
-# async def db_get_todos() -> list:
-#     todos = []
-#     for todo in await collection_todo.find().to_list(length=100):
-#         todos.append(todo_serializer(todo))
-#     return todos
+# todo一覧取得
+async def db_get_todos() -> list:
+    todos = []
+    # motorメソッドfind、awaitは必要ないが、to_listでDBとの通信を行うときにawaitが必要、length max100件
+    for todo in await collection_todo.find().to_list(length=100):
+        todos.append(todo_serializer(todo))
+    return todos
 
 
-# async def db_get_single_todo(id: str) -> Union[dict, bool]:
-#     todo = await collection_todo.find_one({"_id": ObjectId(id)})
-#     if todo:
-#         return todo_serializer(todo)
-#     return False
+# todoのid指定で取得
+async def db_get_single_todo(id: str) -> Union[dict, bool]:
+    todo = await collection_todo.find_one({"_id": ObjectId(id)}) # _idの型をstring型からオブジェクト型に変換して渡す
+    if todo:
+        return todo_serializer(todo)
+    return False
 
 
-# async def db_update_todo(id: str, data: dict) -> Union[dict, bool]:
-#     todo = await collection_todo.find_one({"_id": ObjectId(id)})
-#     if todo:
-#         updated_todo = await collection_todo.update_one(
-#             {"_id": ObjectId(id)}, {"$set": data}
-#         )
-#         if (updated_todo.modified_count > 0):
-#             new_todo = await collection_todo.find_one({"_id": ObjectId(id)})
-#             return todo_serializer(new_todo)
-#     return False
+# todo更新
+async def db_update_todo(id: str, data: dict) -> Union[dict, bool]:
+    todo = await collection_todo.find_one({"_id": ObjectId(id)}) # 引数のidが存在するか確認
+    if todo:
+        updated_todo = await collection_todo.update_one(
+            {"_id": ObjectId(id)}, {"$set": data} # set dataで更新内容を渡す
+        )
+        # 更新成功時はupdate_oneの返り値modified_countに更新したドキュメント数が入る
+        if (updated_todo.modified_count > 0):
+            new_todo = await collection_todo.find_one({"_id": ObjectId(id)})
+            return todo_serializer(new_todo)
+    return False
 
 
-# async def db_delete_todo(id: str) -> bool:
-#     todo = await collection_todo.find_one({"_id": ObjectId(id)})
-#     if todo:
-#         deleted_todo = await collection_todo.delete_one({"_id": ObjectId(id)})
-#         if (deleted_todo.deleted_count > 0):
-#             return True
-#     return False
+# todo削除
+async def db_delete_todo(id: str) -> bool:
+    todo = await collection_todo.find_one({"_id": ObjectId(id)})
+    if todo:
+        deleted_todo = await collection_todo.delete_one({"_id": ObjectId(id)})
+        # 更新成功時はdelete_oneの返り値deleted_countに削除したドキュメント数が入る
+        if (deleted_todo.deleted_count > 0):
+            return True
+    return False
 
 
 # async def db_signup(data: dict) -> dict:
